@@ -16,11 +16,12 @@ COPY . .
 
 # Compile TypeScript to JavaScript
 # Assuming your tsconfig.json is configured to output to a 'build' directory
-# RUN npm run build # Or `tsc` if you run tsc directly without a script
-RUN tsc
+RUN npm run build 
+# Or `tsc` if you run tsc directly without a script
 
 # Expose the port your Express app listens on
 EXPOSE 3000
 
 # Define the command to run your compiled JavaScript application
-CMD [ "node", "./build/app.js" ]
+# CMD [ "node", "./build/app.js" ]
+CMD ["npm", "start"]
