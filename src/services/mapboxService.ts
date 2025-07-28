@@ -75,7 +75,7 @@ export const retrieveIsochrone = async (coords: string, contours: string): Promi
 export const retrieveOptimizedRoute = async (coords: string): Promise<MapboxOptimizationResult|undefined> => {
   try {
     const response = await fetch(
-      `${MAPBOX_OPTIMIZATION_API_URL}/mapbox/walking/${encodeURIComponent(coords)}?annotations=duration&source=first&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`
+      `${MAPBOX_OPTIMIZATION_API_URL}/mapbox/walking/${encodeURIComponent(coords)}?annotations=duration&roundtrip=false&source=first&destination=last&overview=full&access_token=${MAPBOX_ACCESS_TOKEN}`
     );
 
     if (!response.ok) {

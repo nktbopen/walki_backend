@@ -16,13 +16,22 @@ import qs from 'qs';
  * @param duration The overall duration of the itinerary.
  * @returns An array of ItineraryItem objects.
  */
-const convertAttractionsToItinerary = async (attractions: any[]): Promise<Itinerary|null> => {
+const convertAttractionsToItinerary = async (attractions: any[], startPointCoords: string): Promise<Itinerary|null> => {
     //  Basic validation:  Ensure attractions is an array and has elements.
     if (!Array.isArray(attractions) || attractions.length === 0) {
         return null; // Or throw an error:  throw new Error("Attractions array is empty or invalid");
     }
+    console.log("convertAttractionsToItinerary:",startPointCoords);
     // Get optimized route through selected points
-    const coordsStr = attractions.map(a => a.coordinates?.join(',')).join(';');
+    let coordsStr = "";
+    const attractionCoords = attractions.map(a => a.coordinates?.join(','));
+    if(startPointCoords){
+        coordsStr = startPointCoords+";";
+    } else {
+        coordsStr = attractionCoords[0]+";";
+    }
+    coordsStr += attractionCoords.join(';');
+    console.log("coordsStr:",coordsStr);
     const optimizedCoords = await retrieveOptimizedRoute(coordsStr);
     
     if(!optimizedCoords){
@@ -120,7 +129,7 @@ export const createItinerary = async (req: Request, res: Response) => {
             return;
         }
 
-        const { attractionIds, title} = req.body;
+        const { attractionIds, startPointCoords, title } = req.body;
 
         // Input validation: Check for required data
         if (!attractionIds) {
@@ -140,7 +149,7 @@ export const createItinerary = async (req: Request, res: Response) => {
         const attractionsFromDb = await AttractionModel.find({ osm_id: { $in: attractionIds } });
 
         // 2. Convert attractions to itinerary items
-        const itineraryData = await convertAttractionsToItinerary(attractionsFromDb);
+        const itineraryData = await convertAttractionsToItinerary(attractionsFromDb,startPointCoords);
 
         // Create the Itinerary object
         const itinerary = new ItineraryModel(itineraryData);
@@ -418,7 +427,7 @@ export const getSuggestedItineraries = async (req: Request, res: Response) => {
         for (const s of suggestions) {
             if (s.attraction_ids.length > 1) {
                 const itineraryAttractions = attractions.filter(a => s.attraction_ids.map(i => i.osm_id).includes(a.osm_id));
-                const itinearary = await convertAttractionsToItinerary(itineraryAttractions); // Await works here
+                const itinearary = await convertAttractionsToItinerary(itineraryAttractions, locationCoords as string); // Await works here
                 if (itinearary) {
                     itinearary.title = s.category;
                     itineraries.push(itinearary);
