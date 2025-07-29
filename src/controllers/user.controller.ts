@@ -93,7 +93,6 @@ export const signUp = async (req: Request, res: Response) => {
  */
 export const signIn = async (req: Request, res: Response) => {
     try {
-        console.log("signIn");
         const { email, password } = req.body;
 
         // 1. Input Validation

@@ -14,6 +14,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@mapbox/polyline": "^1.2.1",
+    "@turf/turf": "^7.2.0",
     "@types/geojson": "^7946.0.16",
     "bcrypt": "^6.0.0",
     "dotenv": "^16.5.0",

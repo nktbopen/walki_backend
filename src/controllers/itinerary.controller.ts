@@ -8,6 +8,7 @@ import { generateTextFromWiki,suggestAttractions } from '../services/geminiServi
 import { synthesizeSpeech } from '../services/textToSpeechService';
 import User from '../models/user.model'; 
 import qs from 'qs';
+import {distance} from '@turf/turf'
 
 /**
  * Converts an array of attractions (from the request) into an array of ItineraryItems.
@@ -21,32 +22,41 @@ const convertAttractionsToItinerary = async (attractions: any[], startPointCoord
     if (!Array.isArray(attractions) || attractions.length === 0) {
         return null; // Or throw an error:  throw new Error("Attractions array is empty or invalid");
     }
-    console.log("convertAttractionsToItinerary:",startPointCoords);
+
+    attractions.forEach((a) => {
+        a.distance = distance(startPointCoords.split(',').map(Number), a.coordinates, { units: 'kilometers' });
+    });
+
+    attractions = attractions.sort((a, b) => a.distance - b.distance);
     // Get optimized route through selected points
     let coordsStr = "";
     const attractionCoords = attractions.map(a => a.coordinates?.join(','));
     if(startPointCoords){
         coordsStr = startPointCoords+";";
-    } else {
-        coordsStr = attractionCoords[0]+";";
-    }
+    } 
     coordsStr += attractionCoords.join(';');
-    console.log("coordsStr:",coordsStr);
+
     const optimizedCoords = await retrieveOptimizedRoute(coordsStr);
-    
+
     if(!optimizedCoords){
         return null;
     }
     const duration = optimizedCoords.trips[0].duration;
-    const distance = optimizedCoords.trips[0].distance;
+    const dist = optimizedCoords.trips[0].distance;
     const waypoints = optimizedCoords.waypoints;
     const routeCoordinates = optimizedCoords.trips[0].coordinates;
 
     const itineraryItems =  attractions.map((attraction, index) => {
-        const sequence = waypoints[index].waypoint_index;
+        let sequence;
+        if(startPointCoords){
+            sequence = waypoints[index+1].waypoint_index;
+        } else {
+            sequence = waypoints[index].waypoint_index + 1;
+        }
+        
         return {
             attractionId: attraction._id, //  Use attraction._id from the database
-            sequence: sequence+1,
+            sequence: sequence,
             name: attraction.name,
             duration: `5 min`,
             coordinates: attraction.coordinates,
@@ -55,11 +65,12 @@ const convertAttractionsToItinerary = async (attractions: any[], startPointCoord
             images: attraction.images,
         };
     }).sort((a, b) => a.sequence - b.sequence);
+
     return {
         routeCoordinates: routeCoordinates,
         itineraryItems: itineraryItems,
         duration: Math.round(duration/60),
-        distance: Math.round(distance),
+        distance: Math.round(dist),
         title: `${itineraryItems[0].name} - ${itineraryItems.at(-1)?.name}`
     }
 };
