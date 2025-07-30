@@ -69,7 +69,8 @@ const suggestAttractionsModelConfig:GenerationConfig = {
 
 const GEMINI_AP_KEY = 'AIzaSyDrZtVbxY5lMg96FWA4ow8XffzL9yqfSvo';
 const genAI = new GoogleGenerativeAI(GEMINI_AP_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite'});
+//const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite'});
+const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite'});
 
 export const generateDescription = async (attractions: string): Promise<GenerateContentResult | null> => {
   const prompt = "You are a travel guide tasked with creating concise, informative and engaging one-sentence annotation for the tourist attractions provided in the attached json list."
@@ -111,7 +112,7 @@ export const generateTextFromWiki = async (wikipedia_page: string, sequence: num
     +"Your goal is to then create a narrative for audio guide, approximately 300-400 words in length, that describes this tourist attraction as if you were giving a guided tour to a real person. The tone and style should reflect a natural, engaging, and informative conversation between a tour guide and a tourist."
     +"Make sure to incorporate key facts and details from the Wikipedia article into your narrative, but present them in a way that is accessible and interesting to a listener. Avoid simply reciting information; instead, weave it into a compelling story. You can include anecdotes, historical context, and descriptive language to bring the attraction to life."
     +"Consider the following instructions:"
-    +"* Divide the narrative into parts and before the beginning of the next part indicate its title, for example: \"Interesting facts\", \"Useful tips for visiting\", \"Historical background\", etc. But skip the titles for Introduction and Conclusion parts. "
+    +"* Divide the narrative into parts and before the beginning of the next part indicate its title, for example: \"Interesting facts\", \"Useful tips for visiting\", \"Historical background\", etc. But skip the titles for Introduction and Conclusion. "
     +"* In the beginning skip the greeting and start directly with the name of the attraction and short introduction to it. "
     //+"* If required can mention that it's our ${position} point of the excursion. "
     +"* Guiding the \"listener\" through different aspects or areas of the attraction (even if the Wikipedia article doesn't explicitly divide it). "
@@ -131,7 +132,7 @@ export const generateTextFromWiki = async (wikipedia_page: string, sequence: num
   const result = await sendGeminiRequest(wikipedia_page, prompt, generateTextFromWikiModelConfig);
 
   if(result && result.response && result.response.candidates && result.response.candidates[0].content){
-    //console.log("text result: ",result.response.candidates[0].content);
+    console.log("text result: ",result.response.candidates[0].content);
     return result.response.candidates[0].content;
   } else {
     return null;
