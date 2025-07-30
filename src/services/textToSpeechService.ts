@@ -8,15 +8,17 @@ export const synthesizeSpeech = async (input_text: string): Promise<string|null>
         console.log("Start synthesizeSpeech");
         const request_body = {
             'input':{
-                'text': input_text
+                //'text': input_text
+                'ssml': '<speak>'+input_text+'</speak>'
             },
             'voice':{
                 'languageCode':'en-us',
-                'name':'en-US-Standard-J',
+                'name':'en-US-Standard-I',
                 'ssmlGender':'MALE',
             },
             'audioConfig':{
                 'audioEncoding':'MP3',
+                //'speakingRate': 0.9,
                 "effectsProfileId": [
                     "headphone-class-device"
                 ],
