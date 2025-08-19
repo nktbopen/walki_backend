@@ -294,7 +294,6 @@ export const retrieveAttractions = async (locationCoords:string, duration: strin
 
 export const getAttractionsByLocation = async (req: Request, res: Response) => {
     try {
-
         const query = qs.parse(qs.stringify(req.query), { 
             ignoreQueryPrefix: true //removes the "?"
         });

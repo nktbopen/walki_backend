@@ -3,7 +3,8 @@
 import { AttractionCategories } from '../constants/AttractionCategories';
 import { OverpassElement} from '../interfaces/interfaces'; // Define types (see below)
 
-const OVERPASS_API_BASE_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_API_BASE_URL = 'https://maps.mail.ru/osm/tools/overpass/api/interpreter';
+// const OVERPASS_API_BASE_URL = 'https://overpass-api.de/api/interpreter';
 
 const mapboxToOsmGeoJsonPolygon = (mapboxPolygon: GeoJSON.Polygon): GeoJSON.Polygon | null => {
     if (
@@ -125,6 +126,10 @@ const send_overpass_query = async (category: {name: string, rule:string}, polygo
     }
 }
 
+const sleep = (ms: number):Promise<void> => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export const getTouristAttractions = async (geojsonPolygon: GeoJSON.Polygon, categories: string[]): Promise<OverpassElement[]> => {
     if (!geojsonPolygon || geojsonPolygon.type !== 'Polygon' || !geojsonPolygon.coordinates || geojsonPolygon.coordinates.length === 0) {
         throw new Error('Invalid GeoJSON Polygon');
@@ -145,10 +150,12 @@ export const getTouristAttractions = async (geojsonPolygon: GeoJSON.Polygon, cat
     if(polygonBbox && coordinates && categoryQueries) {
         for (const category of categoryQueries) {
             try {
-                const overpassData = await send_overpass_query(category, polygonBbox, coordinates);
-                if (overpassData) {
-                result = result.concat(overpassData);
-                }
+                  console.log("send_overpass_query");
+                  const overpassData = await send_overpass_query(category, polygonBbox, coordinates);
+                  if (overpassData) {
+                    result = result.concat(overpassData);
+                  }
+                  await sleep(100);
             } catch (error) {
                 console.error(`Error fetching data for category ${category.name}:`, error);
             }

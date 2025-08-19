@@ -93,6 +93,7 @@ export const suggestAttractions = async (attractions: string): Promise<{category
               +"Since explicit popularity data is not provided, infer significance/popularity based on the attraction's name, categories, and your general knowledge. "
               +"Prioritize well-known landmarks, historically important sites, or highly recognized points of interest. "
               +"Please provide between 10 and 15 attractions per each category (if there are any). "
+              +"In the output include osm_id and attraction name belonging to each suggested category. "
               +"Here is the list of the attractions:";
   const result = await sendGeminiRequest(attractions, prompt, suggestAttractionsModelConfig);
   if(result && result.response && result.response.candidates && result.response.candidates[0].content.parts[0].text){
@@ -132,7 +133,7 @@ export const generateTextFromWiki = async (wikipedia_page: string, sequence: num
   const result = await sendGeminiRequest(wikipedia_page, prompt, generateTextFromWikiModelConfig);
 
   if(result && result.response && result.response.candidates && result.response.candidates[0].content){
-    console.log("text result: ",result.response.candidates[0].content);
+    //console.log("text result: ",result.response.candidates[0].content);
     return result.response.candidates[0].content;
   } else {
     return null;
