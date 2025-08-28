@@ -263,7 +263,7 @@ export const retrieveAttractions = async (locationCoords:string, duration: strin
             // Convert overpass elements into Attractions
             const attractions = await convertOverpassToAttractions(overpassAttractions);
 
-            attractions.splice(10); // for testing purposes
+            //attractions.splice(10); // for testing purposes
 
             // Enrich attractions from DB
             await enrichAttractionsFromDB(attractions);
