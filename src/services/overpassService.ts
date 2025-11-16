@@ -104,7 +104,7 @@ const send_overpass_query = async (category: {name: string, rule:string}, polygo
             nwr.b["wikipedia"]->.c;
         );
         .c out tags center;`;
-
+        //console.log(query);
         const params = new URLSearchParams({ data: query });
         const response = await fetch(`${OVERPASS_API_BASE_URL}?${params.toString()}`);
 
@@ -130,7 +130,7 @@ const sleep = (ms: number):Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export const getTouristAttractions = async (geojsonPolygon: GeoJSON.Polygon, categories: string[]): Promise<OverpassElement[]> => {
+export const getTouristAttractions = async (geojsonPolygon: GeoJSON.Polygon, categories: string[]|string): Promise<OverpassElement[]> => {
     if (!geojsonPolygon || geojsonPolygon.type !== 'Polygon' || !geojsonPolygon.coordinates || geojsonPolygon.coordinates.length === 0) {
         throw new Error('Invalid GeoJSON Polygon');
     }
@@ -143,7 +143,7 @@ export const getTouristAttractions = async (geojsonPolygon: GeoJSON.Polygon, cat
 
     const polygonBbox = calculateBbox(osmPolygon);
     const coordinates = osmPolygon.coordinates[0].map(coord => coord.join(' ')).join(' ');
-    const categoryQueries = AttractionCategories.filter(r => categories.includes(r.name));
+    const categoryQueries = categories === 'ALL' ? AttractionCategories : AttractionCategories.filter(r => categories.includes(r.name));
 
     let result: OverpassElement[] = [];
 

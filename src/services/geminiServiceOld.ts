@@ -1,25 +1,22 @@
 
-import {GoogleGenAI,GenerateContentResponse, Content, GenerateContentConfig, Schema, Part} from '@google/genai';
-import { GenerateAudioScriptParams } from '../interfaces/interfaces';
+import {GoogleGenerativeAI,GenerateContentResult, Content, GenerateContentRequest, GenerationConfig, ResponseSchema, Part} from '@google/generative-ai';
 
-const modelName = 'gemini-2.5-flash-lite'
-
-const generateDescriptionModelConfig:GenerateContentConfig = {
+const generateDescriptionModelConfig:GenerationConfig = {
   temperature: 0,
   topP: 0.95,
   topK: 40,
   maxOutputTokens: 8192,
   responseMimeType: "application/json",
-  responseSchema:<Schema>{
-    type: "ARRAY",
+  responseSchema:<ResponseSchema>{
+    type: "array",
     items: {
-      type: "OBJECT",
+      type: "object",
       properties: {
         osm_id: {
-          type: "NUMBER"
+          type: "number"
         },
         description: {
-          type: "STRING"
+          type: "string"
         },
       },
       required: [
@@ -30,48 +27,52 @@ const generateDescriptionModelConfig:GenerateContentConfig = {
   },
 };
 
-const suggestAttractionsModelConfig:GenerateContentConfig = {
+const generateTextFromWikiModelConfig:GenerationConfig = {
+  temperature: 0,
+  topP: 0.95,
+  topK: 40,
+  maxOutputTokens: 8192,
+};
+
+const suggestAttractionsModelConfig:GenerationConfig = {
   temperature: 0,
   topP: 0.95,
   topK: 40,
   maxOutputTokens: 8192,
   responseMimeType: "application/json",
-  responseSchema:<Schema>{
-    type: "ARRAY",
+  responseSchema:<ResponseSchema>{
+    type: "array",
     items: {
-      type: "OBJECT",
+      type: "object",
       properties: {
         title: {
-          type: "STRING"
-        },
-        description: {
-          type: "STRING"
+          type: "string"
         },
         attraction_ids: {
-          type: "ARRAY",
+          type: "array",
           items: {
-            type: "OBJECT",
+            type: "object",
             properties: {
-              osm_id: {type: "NUMBER"},
-              name: {type: "STRING"}
+              osm_id: {type: "number"},
+              name: {type: "string"}
             }
           }
         },
       },
       required: [
         "title",
-        "description",
         "attraction_ids",
       ]
     }
   },
 };
 
-const GEMINI_AP_KEY = 'AIzaSyCTPEaKnngV6YMmqHW39ODozDgoYAOJkNI';//'AIzaSyDrZtVbxY5lMg96FWA4ow8XffzL9yqfSvo';
-const genAI = new GoogleGenAI({apiKey: GEMINI_AP_KEY});
-//const model = genAI.getGenerativeModel({ model: modelName});
+const GEMINI_AP_KEY = 'AIzaSyDrZtVbxY5lMg96FWA4ow8XffzL9yqfSvo';
+const genAI = new GoogleGenerativeAI(GEMINI_AP_KEY);
+//const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite'});
+const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite'});
 
-export const generateDescription = async (attractions: string): Promise<string | undefined> => {
+export const generateDescription = async (attractions: string): Promise<GenerateContentResult | null> => {
   const prompt = "You are a travel guide tasked with creating concise, informative and engaging one-sentence annotation for the tourist attractions provided in the attached json list."
         +" For each attraction provide a single sentence that includes: a) A key feature or historical fact about the attraction. b) A reason why a tourist might want to visit it. "
         // +"A good examples of informative descriptions: "
@@ -82,37 +83,34 @@ export const generateDescription = async (attractions: string): Promise<string |
         +"Here is the list of the attractions:";
   const result = await sendGeminiRequest(attractions, prompt, generateDescriptionModelConfig);
 
-  if(result && result.text){
-    return result.text;
-  } else {
-    return undefined;
-  }
+  return result;
 };
 
-export const suggestAttractions = async (attractions: string): Promise<{title: string, description: string, attraction_ids:[{osm_id: number, name: string}]}[] | null> => {
+export const suggestAttractions = async (attractions: string): Promise<{title: string, attraction_ids:[{osm_id: number, name: string}]}[] | null> => {
   const prompt = "You are an expert travel guide with vast knowledge of global landmarks and points of interest. " 
               //+"Your task is to analyze a given list of attractions and identify the most significant or popular ones for each of the following category: 'Popular tourist attractions', 'Artworks', 'Museums', 'Monuments', 'Architecure', 'History', 'Famous people', 'Film making', 'Hidden gems'. "
               //+"You can adjust the name of categories to make them more attractive for tourists. If relevant you can mention the number of attractions in a group e.g: 'Top 10 attractions ...' or '10 significant artworks ...' etc. Also you can combine multiple categories into one in case if only few belong to a single category. Skip the categories for which there are less then 5 relevant attractions in the provided list. "
               +"Your task is to analyze a given list of attractions and identify the possible titles for the thematic tours. With each name provide the list of belonging attractions. Some topics to be used: 'Popular tourist attractions', 'Artworks', 'Museums', 'Monuments', 'Architecure', 'History', 'Famous people', 'Film making', 'Hidden gems'. "
               +"Since explicit popularity data is not provided, infer significance/popularity based on the attraction's name, categories, and your general knowledge. "
               +"Prioritize well-known landmarks, historically important sites, or highly recognized points of interest. "
-              +"Provide between 5 and 10 attractions per each tour title (if there are any). "
+              +"Please provide between 5 and 10 attractions per each tour title (if there are any). "
               +"Skip the tours for which there are less then 5 relevant attractions in the provided list. "
-              +"For each title in the description provide 1-3 sentences instructions for future narative of the audio guide, explain what tour is about and instruct which topics to observe. "
-              +"In the output include osm_id and attraction name belonging to each suggested tour title and desciption of the tour. "
+              +"In the output include osm_id and attraction name belonging to each suggested tour title. "
               +"Here is the list of the attractions:";
-  const response = await sendGeminiRequest(attractions, prompt, suggestAttractionsModelConfig);
-  if(response && response.text){
-    const json_result:{title: string, description: string, attraction_ids:[{osm_id: number, name: string}]}[] = JSON.parse(response.text);
+  const result = await sendGeminiRequest(attractions, prompt, suggestAttractionsModelConfig);
+  if(result && result.response && result.response.candidates && result.response.candidates[0].content.parts[0].text){
+    const json_result:{title: string, attraction_ids:[{osm_id: number, name: string}]}[] = JSON.parse(result.response.candidates[0].content.parts[0].text);
     return json_result;
   } else {
     return null;
   }
 };
 
-export const generateAudioScript = async (params: GenerateAudioScriptParams): Promise<string | undefined> => {
+export const generateTextFromWiki = async (wikipedia_page: string, sequence: number, is_last: boolean): Promise<Content | null> => {
+  console.log("wikipedia_page: ", wikipedia_page);
 
-  //const position = sequence === 1 ? 'first' : sequence === 2 ? 'second' : sequence === 3 ? 'third' : is_last === true ? 'last' : 'next';
+  const position = sequence === 1 ? 'first' : sequence === 2 ? 'second' : sequence === 3 ? 'third' : is_last === true ? 'last' : 'next';
+
   // const prompt = "Your task is to act as an experienced tour guide."
   //   +"First, you will be provided with the HTML content of a Wikipedia article about a tourist attraction. Carefully read and understand the information presented in this article. "
   //   +"Your goal is to then create a narrative for audio guide, approximately 300-400 words in length, that describes this tourist attraction as if you were giving a guided tour to a real person. " 
@@ -139,59 +137,45 @@ export const generateAudioScript = async (params: GenerateAudioScriptParams): Pr
   //   +"Based on this information, please generate the tour guide speach. "
   //   +"Here is the HTML content of the Wikipedia article:";
 
-  // const topic = "Architectural Marvels";
-  // const topicDescription = "focusing on design, style evolution, materials, and the architects' intent";
-  // const itineraryAttractions = "Palacio de la Aduana, Palacio de Villacazar, Palacio de los Condes de Buenavista";
+  const topic = "Architectural Marvels";
+  const topicDescription = "focusing on design, style evolution, materials, and the architects' intent";
+  const itineraryNames = "Palacio de la Aduana, Palacio de Villacazar, Palacio de los Condes de Buenavista";
+  const attractionName = "";
 
-  const systemInstruction = "You are an expert travel writer and audio guide script developer. Your task is to generate engaging, informative, and cohesive scripts for an audio tour. "
+  const introPrompt = "You are an expert travel writer and audio guide script developer. Your task is to generate engaging, informative, and cohesive scripts for an audio tour. "
   + "### 1. Persona and Format "
   + "* **Target Format:** Audio guide script (narrative, engaging, descriptive, and easy to follow). "
-  + "* **Tone/Voice:** **Knowledgeable, appreciative of detailed craftsmanship, and formal.** "
-  //+ "* **The emphasis should be on ** **historical significance, design, materials, and architectural styles.** "
+  + "* **Tone/Voice:** **Knowledgeable, appreciative of detailed craftsmanship, and formal.** The emphasis should be on historical significance, design, materials, and architectural styles. "
   + "* **Length Constraint:** Each attraction script must be between **300 and 350 words**. "
   + "### 2. Tour Context "
-  + "* **Tour Topic/Theme:** **"+params.topic+"** ("+params.topicDescription+"). "
-  + "* **Itinerary:** The following attractions are part of this tour: **"+params.itineraryItemsList+"** "
+  + "* **Tour Topic/Theme:** **"+topic+"** ("+topicDescription+"). "
+  + "* **Itinerary:** The following attractions are part of this tour: **"+itineraryNames+"** "
   + "### 3. Instruction for Subsequent Requests "
   + "For each subsequent request, I will provide you with the name of a single attraction from the itinerary and a block of text containing relevant information, typically sourced from a Wikipedia page. "
   + "**Your response for each subsequent request must be:** "
   + "1.  A standalone, engaging audio guide script for the specified attraction. "
-  + "2.  Tailored to emphasize information and details relevant to the **Tour Topic/Theme** provided above ("+params.topic+"). "
+  + "2.  Tailored to emphasize information and details relevant to the **Tour Topic/Theme** provided above ("+topic+"). "
   + "3.  Strictly adhere to the **300-400 word** length. "
   + "4.  Begin with a captivating opening and end with a smooth transition or concluding thought. "
   + "5.  Do NOT include a title or introduction/conclusion that breaks the flow of the script. Start directly with the narrative. "
-  + "6.  Script language: **"+params.language+"**. "
 
   const prompt = "**Generate the audio guide script for the attraction below.** "
-  + "**Attraction Name:**"+params.attractionName+"** "
-  + "**Wikipedia Data:**";
+  + "**Attraction Name:**"+attractionName+"** "
+  + "**Wikipedia Data:** **"+wikipedia_page+"** ";
 
-  console.log("systemInstruction: ",systemInstruction);
-  console.log("prompt: ",prompt);
-  // console.log("wikipedia_page: ",params.wikipediaData);
+  const result = await sendGeminiRequest(wikipedia_page, prompt, generateTextFromWikiModelConfig);
 
-  const generateTextFromWikiModelConfig:GenerateContentConfig = {
-    temperature: 0,
-    topP: 0.95,
-    topK: 40,
-    maxOutputTokens: 8192,
-    systemInstruction: systemInstruction,
-  };
-
-  const response = await sendGeminiRequest(params.wikipediaData, prompt, generateTextFromWikiModelConfig);
-
-  if(response && response.text){
-    //console.log("text result: ",response.text);
-    return response.text;
+  if(result && result.response && result.response.candidates && result.response.candidates[0].content){
+    //console.log("text result: ",result.response.candidates[0].content);
+    return result.response.candidates[0].content;
   } else {
-    return undefined;
+    return null;
   }
   
 };
 
-const sendGeminiRequest = async (payload: string, prompt: string, generationConfig: GenerateContentConfig): Promise<GenerateContentResponse | null> => {
+const sendGeminiRequest = async (payload: string, prompt: string, generationConfig: GenerationConfig): Promise<GenerateContentResult | null> => {
   try {
-
     const parts:Part[] = [
       {
         text: prompt,
@@ -200,15 +184,13 @@ const sendGeminiRequest = async (payload: string, prompt: string, generationConf
         text: payload,
       }
     ];
+    model.generationConfig = generationConfig;
 
-    const response = await genAI.models.generateContent({
-      config: generationConfig,
-      contents: parts,
-      model: modelName
-    });
+    model.startChat({})
 
-    if(response && response.candidates && response.candidates[0].content){
-      return response;
+    const result = await model.generateContent(parts);
+    if(result && result.response && result.response.candidates && result.response.candidates[0].content){
+      return result;
     } else{
       return null;
     }

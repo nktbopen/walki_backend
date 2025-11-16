@@ -9,6 +9,9 @@ import { generateDescription, } from '../services/geminiService';
 import { getWikipediaData } from '../services/wikipediaService';
 import qs from 'qs';
 import AttractionModel from '../models/attraction.model';
+import { Polygon} from 'geojson';
+import { parseMongoBbox, parseLocation } from '../utils/utils';
+import { autocompleteSearch, vectorSearch } from '../services/mongoAtlasService';
 
 const convertOverpassToAttractions = async (overpassItems: OverpassElement[]): Promise<Attraction[]> => {
     const attractions: Attraction[] = [];
@@ -148,8 +151,8 @@ const enrichAttractionDescriptions = async (attractions: Attraction[])=> {
         // Retrieve refined attractions from LLM
         const llmResults = await generateDescription(JSON.stringify(attractionsForLLM));
 
-        if(llmResults && llmResults.response.candidates && llmResults.response.candidates[0].content.parts[0].text){
-            const descriptions: Attraction[] = JSON.parse(llmResults.response.candidates[0].content.parts[0].text);
+        if(llmResults){
+            const descriptions: Attraction[] = JSON.parse(llmResults);
             attractions.forEach((a) => {
                 const description = descriptions.find((d) => d.osm_id === a.osm_id);
                 a.description = description?.description;
@@ -251,41 +254,32 @@ export const getAllAttractions = async (req: Request, res: Response) => {
     }
 }
 
-export const retrieveAttractions = async (locationCoords:string, duration: string):Promise<Attraction[]> => {
+export const retrieveAttractions = async (coordinates: Polygon):Promise<Attraction[]> => {
     try {
-        //Get isochrone from the start location
-        const results = await retrieveIsochrone(locationCoords as string, duration as string);
-        // Retrieve attractions withing isochrone coords
-        if(results && results[0] && results[0].geometry){
-            const coordinates = results[0].geometry;
-            const overpassAttractions = await getTouristAttractions(coordinates, ['TOURIST_ATTRACTION', 'ARTWORK', 'MUSEUMS', 'MONUMENT', 'HISTORY', 'ARCHAELOGICAL_SITE', 'RUINS']);
-            
-            // Convert overpass elements into Attractions
-            const attractions = await convertOverpassToAttractions(overpassAttractions);
+        //const overpassAttractions = await getTouristAttractions(coordinates, ['TOURIST_ATTRACTION', 'ARTWORK', 'MUSEUMS', 'MONUMENT', 'HISTORY', 'ARCHAELOGICAL_SITE', 'RUINS']);
+        const overpassAttractions = await getTouristAttractions(coordinates, 'ALL');
+        
+        // Convert overpass elements into Attractions
+        const attractions = await convertOverpassToAttractions(overpassAttractions);
 
-            //attractions.splice(10); // for testing purposes
+        //attractions.splice(10); // for testing purposes
 
-            // Enrich attractions from DB
-            await enrichAttractionsFromDB(attractions);
+        // Enrich attractions from DB
+        await enrichAttractionsFromDB(attractions);
 
-            // Enrich description from llm
-            await enrichAttractionDescriptions(attractions);
+        // Enrich description from llm
+        await enrichAttractionDescriptions(attractions);
 
-            // Enrich attraction addresses
-            await enrichAttractionAddresses(attractions);
+        // Enrich attraction addresses
+        await enrichAttractionAddresses(attractions);
 
-            // Enrich attractions with images
-            await enrichAttractionImages(attractions);
+        // Enrich attractions with images
+        await enrichAttractionImages(attractions);
 
-            // Store attractions
-            const storedAttractions = await storeAttractions(attractions);
-            
-            return storedAttractions;
-            
-        } else {
-            console.log("Unable to retrieve isochrone");
-            return [];
-        }
+        // Store attractions
+        const storedAttractions = await storeAttractions(attractions);
+        
+        return storedAttractions;
     } catch (error) {
         console.error('Error in searchLocations:', error);
         return [];
@@ -301,17 +295,157 @@ export const getAttractionsByLocation = async (req: Request, res: Response) => {
         const locationCoords = query.locationCoords;
         const duration = query.duration;
 
-        // Get attractions
-        const attractions = await retrieveAttractions(locationCoords as string, duration as string);
+        //Get isochrone from the start location
+        const isochrone = await retrieveIsochrone(locationCoords as string, duration as string);
 
-        // Store attractions
+        if(isochrone && isochrone[0] && isochrone[0].geometry){
+            const coordinates = isochrone[0].geometry;
+            // Get attractions
+            const attractions = await retrieveAttractions(coordinates);
+
+            // Store attractions
+            if (attractions && attractions.length > 0){
+                res.status(200).json(attractions);
+            } else {
+                console.error('No attractions found:');
+                res.status(200).json([]);
+            }
+        } else {
+            console.error("Unable to retrieve isochrone");
+            res.status(500).json({ error: 'Unable to retrieve isochrone' });
+        }
+            
+    } catch (error) {
+        console.error('Error in searchLocations:', error);
+        res.status(500).json({ error: 'Failed to retrieve attractions' });
+    }
+};
+
+const bboxToGeoJSONPolygon = (bbox: string): Polygon => {
+    const [minX, minY, maxX, maxY] = bbox.split(',').map(c => parseFloat(c));
+    // GeoJSON Polygon coordinates must form a closed loop, meaning the first
+    // and last coordinate pair must be identical.
+    const coordinates: number[][][] = [
+        [
+            [minX, minY],
+            [maxX, minY],
+            [maxX, maxY],
+            [minX, maxY],
+            [minX, minY], // Closing the polygon
+        ],
+    ];
+
+    return {
+        type: 'Polygon',
+        coordinates: coordinates,
+    };
+};
+
+// Example: http://192.168.1.137:3000/attractions/getAttractionsByBbox?locationBbox=-4.466641665626497,36.68639672966282,-4.337945831423212,36.76189590089815
+export const importAttractionsByBbox = async (req: Request, res: Response) => {
+    try {
+        const query = qs.parse(qs.stringify(req.query), { 
+            ignoreQueryPrefix: true //removes the "?"
+        });
+        
+        const locationBbox = query.locationBbox;
+        const coordinates = bboxToGeoJSONPolygon(locationBbox as string);
+        
+        // Get attractions
+        const attractions = await retrieveAttractions(coordinates);
+
+        //  Fetch wikipedia content
+        for (const attraction of attractions) {
+            try {
+                if(!attraction.wikipedia_content){
+                    await enrichWikipediaData(attraction);
+                }
+            } catch (error) {
+                console.error('Error in enreach wikipedia data', error);
+            }
+        };
+
+        // Store and Return attractions
         if (attractions && attractions.length > 0){
+            await storeAttractions(attractions);
             res.status(200).json(attractions);
         } else {
             console.error('No attractions found:');
             res.status(200).json([]);
         }
+            
+    } catch (error) {
+        console.error('Error in searchLocations:', error);
+        res.status(500).json({ error: 'Failed to retrieve attractions' });
+    }
+};
+
+export const getAttractions = async (req: Request, res: Response) => {
+    try {
+        const query = qs.parse(qs.stringify(req.query), { 
+            ignoreQueryPrefix: true //removes the "?"
+        });
         
+        const reqCoords = query.locationCoords;
+        const reqBbox = query.bbox;
+        const queryText = query.q;
+
+        let bbox;
+        let locationCoords;
+
+        // Parse bbox
+        if(reqBbox) {
+            bbox = parseMongoBbox(reqBbox as string);
+        }
+
+        // Parse location corrdinates
+        if(reqCoords) {
+            locationCoords = parseLocation(reqCoords as string);
+        }
+
+        // Get attractions
+        const attractions = await vectorSearch(bbox, locationCoords, queryText as string);
+
+        // Store and Return attractions
+        if (attractions){
+            res.status(200).json(attractions);
+        } else {
+            console.error('No attractions found:');
+            res.status(204).json([]);
+        }
+            
+    } catch (error) {
+        console.error('Error in searchLocations:', error);
+        res.status(500).json({ error: 'Failed to retrieve attractions' });
+    }
+};
+
+
+export const autocomplete = async (req: Request, res: Response) => {
+    try {
+        const query = qs.parse(qs.stringify(req.query), { 
+            ignoreQueryPrefix: true //removes the "?"
+        });
+        
+        const reqBbox = query.bbox;
+        const queryText = query.q;
+
+        let bbox;
+        // Parse bbox
+        if(reqBbox) {
+            bbox = parseMongoBbox(reqBbox as string);
+        }
+
+        // Get attractions
+        const attractions = await autocompleteSearch(queryText as string, bbox);
+
+        // Store and Return attractions
+        if (attractions){
+            res.status(200).json(attractions);
+        } else {
+            console.error('No attractions found:');
+            res.status(204).json([]);
+        }
             
     } catch (error) {
         console.error('Error in searchLocations:', error);

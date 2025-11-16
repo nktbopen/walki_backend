@@ -1,7 +1,7 @@
 
 import express from 'express';
 import { verifyToken } from '../middlewares/authMiddleware'; 
-import { getItineraries, getItineraryById, createItinerary, generateContent, getAudio, getUserItineraries, getSuggestedItineraries, storeItinerary} from '../controllers/itinerary.controller';
+import { getItineraries, getItineraryById, createItinerary, generateContent, getAudio, getUserItineraries, getSuggestedItineraries, storeItinerary, deleteItineraryById} from '../controllers/itinerary.controller';
 
 
 const router = express.Router();
@@ -25,10 +25,12 @@ router.get('/id/:id', verifyToken, getItineraryById);
 router.post('/generateContent', verifyToken, generateContent);
 
 // Route to get suggested itineraries 
-router.post('/getSuggestedItineraries', verifyToken, getSuggestedItineraries);
+router.get('/getSuggestedItineraries', verifyToken, getSuggestedItineraries);
 
 // Route to get suggested itineraries 
 router.post('/storeItinerary', verifyToken, storeItinerary);
 
+// Route to get suggested itineraries 
+router.delete('/:id', verifyToken, deleteItineraryById);
 
 export default router;

@@ -22,6 +22,11 @@ interface ItineraryItem {
   images?: string[];
 }
 
+interface ItineraryChatHistory {
+    itineraryId: string;
+    history?: string[];
+}
+
 interface Attraction {
     osm_id: number;
     name?: string;
@@ -35,6 +40,7 @@ interface Attraction {
     wikimedia?: string;
     images?: string[];
     website?: string;
+    embedding?: number[];
     dml_type?: string;
 }
 
@@ -145,4 +151,26 @@ interface retrieveAttractionsResult {
   }[]
 }
 
-export type {Attraction, OverpassElement, WikidataItem, MapboxGeocodingResult, MapboxIsochroneResult, MapboxOptimizationResult, Itinerary, ItineraryItem, WikipediaPage, retrieveAttractionsResult};
+interface GenerateAudioScriptParams {
+  attractionName?: string, 
+  topic?: string,
+  topicDescription?: string, 
+  itineraryItemsList?: string, 
+  wikipediaData: string,
+  language?: string,
+}
+
+export type {
+    Attraction, 
+    OverpassElement, 
+    WikidataItem, 
+    MapboxGeocodingResult, 
+    MapboxIsochroneResult, 
+    MapboxOptimizationResult, 
+    Itinerary, 
+    ItineraryItem, 
+    ItineraryChatHistory, 
+    WikipediaPage, 
+    retrieveAttractionsResult,
+    GenerateAudioScriptParams
+  };

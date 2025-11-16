@@ -5,9 +5,9 @@ import { Attraction } from '../interfaces/interfaces';
 
 // Define the schema using function notation
 const attractionSchema = new Schema({
-    osm_id: { type: Number, required: true,},
+    osm_id: { type: Number, required: true},
     name: { type: String, required: false },
-    coordinates: { type: [Number], required: false },
+    coordinates: { type: [Number], required: false, index: '2dsphere'},
     address: { type: String, required: false },
     categories: { type: [String], required: false },
     description: { type: String, required: false },
@@ -17,6 +17,7 @@ const attractionSchema = new Schema({
     wikimedia: { type: String, required: false },
     images: { type: [String], required: false },
     website: { type: String, required: false },
+    embedding: {type: [Number], required: false},
 }, { timestamps: true }); // Add timestamps (createdAt, updatedAt)
 
 // Define the model interface (optional, but recommended for better type safety)

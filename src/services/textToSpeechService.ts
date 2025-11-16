@@ -5,15 +5,16 @@ const BASE_URL =  "https://texttospeech.googleapis.com/v1/text:synthesize";
 
 export const synthesizeSpeech = async (input_text: string): Promise<string|null> => {
     try {
-        console.log("Start synthesizeSpeech");
+        //console.log("Start synthesizeSpeech");
+        //console.log('text:',input_text);
         const request_body = {
             'input':{
                 //'text': input_text
                 'ssml': '<speak>'+input_text+'</speak>'
             },
             'voice':{
-                'languageCode':'en-us',
-                'name':'en-US-Standard-I',
+                'languageCode': 'en-us', //'ru-RU', 
+                'name': 'en-US-Standard-I', //'ru-RU-Standard-D',
                 'ssmlGender':'MALE',
             },
             'audioConfig':{
@@ -33,6 +34,7 @@ export const synthesizeSpeech = async (input_text: string): Promise<string|null>
             }
         );
         const responseJson = await response.json();
+        //console.log("responseJson:",responseJson);
         if(responseJson && responseJson.audioContent){
             console.log("Done synthesizeSpeech");
             return responseJson.audioContent;

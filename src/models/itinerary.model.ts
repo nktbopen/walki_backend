@@ -11,7 +11,7 @@ const ItineraryItemSchema: Schema = new Schema({
     name: { type: String },
     duration: { type: String },
     audio: { type: String },
-    coordinates: { type: [Number] },
+    coordinates: { type: [Number], index: '2dsphere' },
     description: { type: String },
     text: { type: String },
     images: { type: [String], required: false },
@@ -20,6 +20,7 @@ const ItineraryItemSchema: Schema = new Schema({
 // Define the schema using function notation
 const itinerarySchema = new Schema({
     title: { type: String, required: false,},
+    description: { type: String, required: false,},
     duration: { type: Number, required: false,},
     distance: { type: Number, required: false,},
     routeCoordinates: { type: [[Number,Number]], required: false,},

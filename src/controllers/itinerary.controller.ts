@@ -1,14 +1,19 @@
 import { Request, Response } from 'express';
 import ItineraryModel  from '../models/itinerary.model'; // Import the Mongoose model
-import {Itinerary, Attraction} from '../interfaces/interfaces';
+import {Itinerary, Attraction, GenerateAudioScriptParams} from '../interfaces/interfaces';
 import AttractionModel from '../models/attraction.model'; 
-import { retrieveOptimizedRoute } from '../services/mapboxService';
+import { retrieveOptimizedRoute,retrieveIsochrone } from '../services/mapboxService';
 import { enrichWikipediaData, retrieveAttractions } from './attractions.controller';
-import { generateTextFromWiki,suggestAttractions } from '../services/geminiService';
+import { generateAudioScript,suggestAttractions } from '../services/geminiService';
 import { synthesizeSpeech } from '../services/textToSpeechService';
 import User from '../models/user.model'; 
 import qs from 'qs';
-import {distance} from '@turf/turf'
+import {distance, point, featureCollection} from '@turf/turf'
+import { clustersDbscan} from "@turf/clusters-dbscan";
+import { Point, Feature } from 'geojson';
+import { vectorSearch } from '../services/mongoAtlasService';
+import { parseMongoBbox, parseLocation } from '../utils/utils';
+import { describe } from 'node:test';
 
 /**
  * Converts an array of attractions (from the request) into an array of ItineraryItems.
@@ -17,17 +22,20 @@ import {distance} from '@turf/turf'
  * @param duration The overall duration of the itinerary.
  * @returns An array of ItineraryItem objects.
  */
-const convertAttractionsToItinerary = async (attractions: any[], startPointCoords: string): Promise<Itinerary|null> => {
+const convertAttractionsToItinerary = async (attractions: any[], startPointCoords?: string): Promise<Itinerary|null> => {
     //  Basic validation:  Ensure attractions is an array and has elements.
     if (!Array.isArray(attractions) || attractions.length === 0) {
         return null; // Or throw an error:  throw new Error("Attractions array is empty or invalid");
     }
 
-    attractions.forEach((a) => {
-        a.distance = distance(startPointCoords.split(',').map(Number), a.coordinates, { units: 'kilometers' });
-    });
+    // Sort by distance from startPoint if exists
+    if(startPointCoords){
+        attractions.forEach((a) => {
+            a.distance = distance(startPointCoords.split(',').map(Number), a.coordinates, { units: 'kilometers' });
+        });
+        attractions = attractions.sort((a, b) => a.distance - b.distance);
+    }
 
-    attractions = attractions.sort((a, b) => a.distance - b.distance);
     // Get optimized route through selected points
     let coordsStr = "";
     const attractionCoords = attractions.map(a => a.coordinates?.join(','));
@@ -300,15 +308,25 @@ export const generateContent = async (req: Request, res: Response) => {
             await attraction.save(); // Save the attraction
         }
 
+        const itineraryItemsList = itinerary.itineraryItems.map(i => i.name).join(", ");
+
         // Generate text from Wikipedia content
         if(attraction.wikipedia_content && itineraryItem && !itineraryItem.text ){
-            const textResult = await generateTextFromWiki(attraction.wikipedia_content, itineraryItem.sequence, itineraryItem.is_last);
-            itineraryItem.text = textResult?.parts[0].text; // Assign to itineraryItem
+            const params: GenerateAudioScriptParams = {
+                attractionName: attraction.name,
+                topic: itinerary.title,
+                topicDescription: itinerary.description,
+                itineraryItemsList: itineraryItemsList,
+                wikipediaData: attraction.wikipedia_content,
+                language: "en-US",
+            };
+            const textResult = await generateAudioScript(params);
+            itineraryItem.text = textResult; // Assign to itineraryItem
             // Save the updated itinerary
             await itinerary.save();
         }
     
-        res.status(200).json({ message: 'Content generated', itinerary });
+        res.status(200).json({ message: 'Content generated', itineraryItem });
 
     } catch (error) {
         console.error('Error in generateContent:', error);
@@ -388,7 +406,10 @@ export const getUserItineraries = async (req: Request, res: Response) => {
         // Find the user and populate their 'itineraries' field
         // The .populate('itineraries') call replaces the ObjectId references
         // with the actual Itinerary documents.
-        const user = await User.findById(userId).populate('itineraries');
+        const user = await User.findById(userId).populate({
+            path: 'itineraries',
+            options: { sort: { 'updatedAt': -1 } }
+        });
 
         if (!user) {
             res.status(404).json({ message: 'User not found.' });
@@ -419,18 +440,72 @@ export const getSuggestedItineraries = async (req: Request, res: Response) => {
             return;
         }
 
+        // Parse params
         const query = qs.parse(qs.stringify(req.query), { 
             ignoreQueryPrefix: true //removes the "?"
         });
 
-        const locationCoords = query.locationCoords;
-        const duration = query.duration;
+        const reqCoords = query.locationCoords;
+        const reqBbox = query.bbox;
+        const queryText = query.q;
 
-        // 1. Retrieve attractions
-        const attractions = await retrieveAttractions(locationCoords as string, duration as string);
+        let bbox;
+        let locationCoords;
+
+        // Parse bbox
+        if(reqBbox) {
+            bbox = parseMongoBbox(reqBbox as string);
+        }
+
+        // Parse location corrdinates
+        if(reqCoords) {
+            locationCoords = parseLocation(reqCoords as string);
+        }
+        // 1. Get attractions
+        const attractions = await vectorSearch(bbox, locationCoords, queryText as string);
+        
+        // Perform clustering
+        const attractionPoints: Feature<Point>[] = []
+        attractions.forEach(a => 
+            {
+                if(a.coordinates){
+                    const p = point(a.coordinates, {id:a.id, osm_id: a.osm_id, name: a.name, description: a.description, coordinates: a.coordinates, categories: a.categories, address: a.address });
+                    attractionPoints.push(p);
+                }
+            }
+        );
+
+        const maxDistance = 0.3;
+        const clustered = clustersDbscan(featureCollection(attractionPoints), maxDistance, {units: "kilometers"});
+       
+        // Trunsform features into clusters with attractions
+        const clusters: {clusterId?: number, attractions: any[]}[] = [];
+
+        clustered.features.filter(f => f.properties.dbscan !== 'noise').forEach(f => {
+            const clusterId = f.properties.cluster;
+            const cluster = clusters.find(cl => cl.clusterId === clusterId);
+            if(cluster){
+                cluster.attractions.push(f.properties);
+            } else {
+                clusters.push({clusterId: clusterId, attractions: [f.properties]});
+            }
+        });
+
 
         // 2. Get suggestions
-        const suggestions = await getSuggestions(attractions);
+        const promises = clusters.map(async (cluster) => {
+            // This returns a promise for the suggestions
+            return await getSuggestions(cluster.attractions);
+        });
+
+        // 2. Wait for all promises to resolve
+        const allSuggestions = await Promise.all(promises);
+
+        // 3. Flatten the array of arrays into a single array
+
+        const suggestions = allSuggestions.reduce((accumulator, currentValue) => {
+            return accumulator.concat(currentValue);
+        }, []);
 
         // 3. Convert suggestions to itineraries
         const itineraries: Itinerary[] = [];
@@ -438,9 +513,10 @@ export const getSuggestedItineraries = async (req: Request, res: Response) => {
         for (const s of suggestions) {
             if (s.attraction_ids.length > 1) {
                 const itineraryAttractions = attractions.filter(a => s.attraction_ids.map(i => i.osm_id).includes(a.osm_id));
-                const itinearary = await convertAttractionsToItinerary(itineraryAttractions, locationCoords as string); // Await works here
+                const itinearary = await convertAttractionsToItinerary(itineraryAttractions.slice(0,12));
                 if (itinearary) {
-                    itinearary.title = s.category;
+                    itinearary.title = s.title;
+                    itinearary.description = s.description;
                     itineraries.push(itinearary);
                 }
             }
@@ -455,7 +531,7 @@ export const getSuggestedItineraries = async (req: Request, res: Response) => {
     }
 };
 
-const getSuggestions = async (attractions: Attraction[]):Promise<{category: string, attraction_ids:[{osm_id: number, name: string}]}[]>  => {
+const getSuggestions = async (attractions: Attraction[]):Promise<{title: string, description: string, attraction_ids:[{osm_id: number, name: string}]}[]>  => {
     try {
         // Reduce attraction attributes for llm
         const attractionsForLLM: Attraction[] = [];
@@ -465,13 +541,14 @@ const getSuggestions = async (attractions: Attraction[]):Promise<{category: stri
                 osm_id: a.osm_id,
                 name: a.name,
                 address: a.address,
+                description: a.description,
                 coordinates: a.coordinates,
                 categories: a.categories,
             });
         });
 
         if(attractionsForLLM.length > 0){
-            const cotegorizedAttractions: {category: string, attraction_ids:[{osm_id: number, name: string}]}[]|null = await suggestAttractions(JSON.stringify(attractionsForLLM));
+            const cotegorizedAttractions: {title: string, description: string, attraction_ids:[{osm_id: number, name: string}]}[]|null = await suggestAttractions(JSON.stringify(attractionsForLLM));
             if(cotegorizedAttractions){
                 return cotegorizedAttractions;
             } else{
@@ -483,5 +560,49 @@ const getSuggestions = async (attractions: Attraction[]):Promise<{category: stri
     } catch (error) {
         console.error("Error categorizing attractions", error);
         return [];
+    }
+};
+
+/**
+ * Deletes selected itinerary
+ * The 'itineraries' attribute in the User model is populated with full Itinerary documents.
+ *
+ * @param req The Express Request object.
+ * @param res The Express Response object.
+ * @returns A promise that resolves to an array of Itinerary documents.
+ */
+export const deleteItineraryById = async (req: Request, res: Response) => {
+    try {
+        // Ensure the user is authenticated and their ID is available
+        if (!req.user || !req.user.id) {
+            res.status(401).json({ error: 'Unauthorized: User not authenticated.' });
+            return;
+        }
+
+        // const query = qs.parse(qs.stringify(req.query), { 
+        //     ignoreQueryPrefix: true
+        // });
+        // const itineraryId = query.itineraryId;
+
+        const itineraryId = req.params.id;
+
+        if (!itineraryId) {
+            res.status(400).json({ message: 'Itinerary ID is required.' });
+            return;
+        }
+
+        const deletionResult = await ItineraryModel.deleteOne({ _id: itineraryId });
+
+        if (deletionResult.deletedCount === 0) {
+            // Handle case where no document was found with that ID
+            res.status(404).json({ message: `Itinerary with ID ${itineraryId} not found.` });
+            return;
+        }
+
+        res.status(204); // If itinerary was deleted
+
+    } catch (error) {
+        console.error('Error deleting itinerary:', error);
+        res.status(500).json({ error: 'Failed to delete itinerary.', details: error });
     }
 };

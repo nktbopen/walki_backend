@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/genai": "^1.29.0",
     "@google/generative-ai": "^0.24.1",
     "@mapbox/polyline": "^1.2.1",
     "@turf/turf": "^7.2.0",
@@ -20,9 +21,11 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "llamaindex": "^0.11.29",
     "mapbox": "^1.0.0-beta10",
     "mongodb": "^6.16.0",
-    "mongoose": "^8.14.1"
+    "mongoose": "^8.14.1",
+    "voyageai": "^0.0.8"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
