@@ -236,6 +236,7 @@ export const vectorSearch = async (bbox?: [[number,number],[number,number]], loc
           categories: 1,
           coordinates: 1,
           images: 1,
+          article: 1,
           score: {
             $meta: 'vectorSearchScore',
           },
@@ -312,6 +313,7 @@ export const autocompleteSearch = async (queryText: string, bbox?: [[number,numb
           categories: 1,
           coordinates: 1,
           images: 1,
+          article: 1,
           highlights: {
             $meta: 'searchHighlights'
           },
