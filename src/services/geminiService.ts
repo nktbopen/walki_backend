@@ -4,74 +4,35 @@ import { GenerateAudioScriptParams } from '../interfaces/interfaces';
 
 const modelName = 'gemini-2.5-flash-lite'
 
-const generateDescriptionModelConfig:GenerateContentConfig = {
-  temperature: 0,
-  topP: 0.95,
-  topK: 40,
-  maxOutputTokens: 8192,
-  responseMimeType: "application/json",
-  responseSchema:<Schema>{
-    type: "ARRAY",
-    items: {
-      type: "OBJECT",
-      properties: {
-        osm_id: {
-          type: "NUMBER"
-        },
-        description: {
-          type: "STRING"
-        },
-      },
-      required: [
-        "osm_id",
-        "description",
-      ]
-    }
-  },
-};
-
-const suggestAttractionsModelConfig:GenerateContentConfig = {
-  temperature: 0,
-  topP: 0.95,
-  topK: 40,
-  maxOutputTokens: 8192,
-  responseMimeType: "application/json",
-  responseSchema:<Schema>{
-    type: "ARRAY",
-    items: {
-      type: "OBJECT",
-      properties: {
-        title: {
-          type: "STRING"
-        },
-        description: {
-          type: "STRING"
-        },
-        attraction_ids: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              osm_id: {type: "NUMBER"},
-              name: {type: "STRING"}
-            }
-          }
-        },
-      },
-      required: [
-        "title",
-        "description",
-        "attraction_ids",
-      ]
-    }
-  },
-};
-
-const GEMINI_AP_KEY = 'AIzaSyCTPEaKnngV6YMmqHW39ODozDgoYAOJkNI';//'AIzaSyDrZtVbxY5lMg96FWA4ow8XffzL9yqfSvo';
-const genAI = new GoogleGenAI({apiKey: GEMINI_AP_KEY});
-//const model = genAI.getGenerativeModel({ model: modelName});
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 export const generateDescription = async (attractions: string): Promise<string | undefined> => {
+  const generateDescriptionModelConfig:GenerateContentConfig = {
+    temperature: 0,
+    topP: 0.95,
+    topK: 40,
+    maxOutputTokens: 8192,
+    responseMimeType: "application/json",
+    responseSchema:<Schema>{
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          osm_id: {
+            type: "NUMBER"
+          },
+          description: {
+            type: "STRING"
+          },
+        },
+        required: [
+          "osm_id",
+          "description",
+        ]
+      }
+    },
+  };
+
   const prompt = "You are a travel guide tasked with creating concise, informative and engaging one-sentence annotation for the tourist attractions provided in the attached json list."
         +" For each attraction provide a single sentence that includes: a) A key feature or historical fact about the attraction. b) A reason why a tourist might want to visit it. "
         // +"A good examples of informative descriptions: "
@@ -90,6 +51,42 @@ export const generateDescription = async (attractions: string): Promise<string |
 };
 
 export const suggestAttractions = async (attractions: string): Promise<{title: string, description: string, attraction_ids:[{osm_id: number, name: string}]}[] | null> => {
+  const suggestAttractionsModelConfig:GenerateContentConfig = {
+    temperature: 0,
+    topP: 0.95,
+    topK: 40,
+    maxOutputTokens: 8192,
+    responseMimeType: "application/json",
+    responseSchema:<Schema>{
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          title: {
+            type: "STRING"
+          },
+          description: {
+            type: "STRING"
+          },
+          attraction_ids: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                osm_id: {type: "NUMBER"},
+                name: {type: "STRING"}
+              }
+            }
+          },
+        },
+        required: [
+          "title",
+          "description",
+          "attraction_ids",
+        ]
+      }
+    },
+  };
   const prompt = "You are an expert travel guide with vast knowledge of global landmarks and points of interest. " 
               //+"Your task is to analyze a given list of attractions and identify the most significant or popular ones for each of the following category: 'Popular tourist attractions', 'Artworks', 'Museums', 'Monuments', 'Architecure', 'History', 'Famous people', 'Film making', 'Hidden gems'. "
               //+"You can adjust the name of categories to make them more attractive for tourists. If relevant you can mention the number of attractions in a group e.g: 'Top 10 attractions ...' or '10 significant artworks ...' etc. Also you can combine multiple categories into one in case if only few belong to a single category. Skip the categories for which there are less then 5 relevant attractions in the provided list. "
@@ -111,37 +108,6 @@ export const suggestAttractions = async (attractions: string): Promise<{title: s
 };
 
 export const generateAudioScript = async (params: GenerateAudioScriptParams): Promise<string | undefined> => {
-
-  //const position = sequence === 1 ? 'first' : sequence === 2 ? 'second' : sequence === 3 ? 'third' : is_last === true ? 'last' : 'next';
-  // const prompt = "Your task is to act as an experienced tour guide."
-  //   +"First, you will be provided with the HTML content of a Wikipedia article about a tourist attraction. Carefully read and understand the information presented in this article. "
-  //   +"Your goal is to then create a narrative for audio guide, approximately 300-400 words in length, that describes this tourist attraction as if you were giving a guided tour to a real person. " 
-  //   +"Consider the following instructions:"
-  //   //+"The tone and style should reflect a natural, engaging, and informative conversation between a tour guide and a tourist."
-  //   +"Make sure to incorporate key facts and details from the Wikipedia article into your narrative, but present them in a way that is accessible and interesting to a listener. Avoid simply reciting information; instead, weave it into a compelling story. You can include anecdotes, historical context, and descriptive language to bring the attraction to life."
-  //   +"* Divide the narrative into parts and before the beginning of the next part indicate its title, for example: \"Interesting facts\", \"Useful tips for visiting\", \"Historical background\", etc. But skip the titles for Introduction and Conclusion. "
-  //   +"* In the beginning skip the greeting and start directly with the name of the attraction and short introduction to it. "
-  //   //+"* If required can mention that it's our ${position} point of the excursion. "
-  //   +"* Guiding the \"listener\" through different aspects or areas of the attraction (even if the Wikipedia article doesn't explicitly divide it). "
-  //   +"* Providing historical context and interesting facts in a digestible manner. "
-  //   +"* Using descriptive language to help the \"listener\" visualize the attraction. "
-  //   +"* Add interesting facts that are known about this landmark. "
-  //   +"* If there are any movies or books related to the landmark, provide information about it. "
-  //   +"* If there are any famous people (actors, writers, singers, painters etc) associated with landmark you can mention it. "
-  //   +"* If you know any useful tips for visiting, you can mention it. "
-  //   //+"* Put SSML tag <break time=\"1000ms\"/> before and after the title of each section to indicate pauses. "
-  //   //+"* Use SSML IPA markup language to place Stress markers. "
-  //   //+"* Use ˈ to indicate correct stress in a names of toponims, landmarks and people. "
-  //   +"* Maintaining a conversational and friendly tone."
-  //   +"* Concluding with a summary or a lasting impression of the attraction. "
-  //   +"* Generated text language must be: en-US. "
-  //   +"* Generated text size must not exceed 5000 bytes. "
-  //   +"Based on this information, please generate the tour guide speach. "
-  //   +"Here is the HTML content of the Wikipedia article:";
-
-  // const topic = "Architectural Marvels";
-  // const topicDescription = "focusing on design, style evolution, materials, and the architects' intent";
-  // const itineraryAttractions = "Palacio de la Aduana, Palacio de Villacazar, Palacio de los Condes de Buenavista";
 
   const systemInstruction = "You are an expert travel writer and audio guide script developer. Your task is to generate engaging, informative, and cohesive scripts for an audio tour. "
   + "### 1. Persona and Format "
@@ -166,8 +132,8 @@ export const generateAudioScript = async (params: GenerateAudioScriptParams): Pr
   + "**Attraction Name:**"+params.attractionName+"** "
   + "**Wikipedia Data:**";
 
-  console.log("systemInstruction: ",systemInstruction);
-  console.log("prompt: ",prompt);
+  //console.log("systemInstruction: ",systemInstruction);
+  //console.log("prompt: ",prompt);
   // console.log("wikipedia_page: ",params.wikipediaData);
 
   const generateTextFromWikiModelConfig:GenerateContentConfig = {
@@ -189,9 +155,47 @@ export const generateAudioScript = async (params: GenerateAudioScriptParams): Pr
   
 };
 
+export const generateAttractionArticle = async (wikipediaData: string, language: string): Promise<string | undefined> => {
+
+  const systemInstruction = "You are an expert travel writer and content curator. Your task is to process a full-length Wikipedia article about a tourist attraction and generate a concise, engaging summary. "
+  //+ "**Goal:** Create a version of the article specifically tailored for a potential tourist, highlighting the most essential and interesting aspects of the attraction. "
+  + "**Constraints & Requirements:** "
+  + "1.  **Length Limit:** The output must be no more than **600 words**. "
+  + "2.  **Focus:** Concentrate *only* on information relevant and useful to a tourist (e.g., historical significance, architectural highlights, unique features, key facts, and cultural importance). "
+  //+ "3.  **Exclusions:** Omit overly technical details, exhaustive historical background irrelevant to the modern visitor, lengthy bureaucratic descriptions, or minor biographical details. "
+  + "4.  **Tone:** Maintain an **engaging, informative, and inviting** tone suitable for a travel guide or a blog post. "
+  //+ "5.  **Structure:** Organize the summary logically with clear headings to enhance readability (e.g., 'History in Brief', 'Architectural Highlights', 'What Makes it Unique,' 'Visitor Essentials'). "
+  + "5.  **Structure:** Organize the summary logically with clear headings to enhance readability. "
+  + "6.  Article language: **"+language+"**. "
+
+  const prompt = "**Input:** ";
+
+  //console.log("systemInstruction: ",systemInstruction);
+  //console.log("prompt: ",prompt);
+  // console.log("wikipedia_page: ",params.wikipediaData);
+
+  const modelConfig:GenerateContentConfig = {
+    temperature: 0,
+    topP: 0.95,
+    topK: 40,
+    maxOutputTokens: 8192,
+    systemInstruction: systemInstruction,
+  };
+
+  const response = await sendGeminiRequest(wikipediaData, prompt, modelConfig);
+
+  if(response && response.text){
+    //console.log("text result: ",response.text);
+    return response.text;
+  } else {
+    return undefined;
+  }
+  
+};
+
 const sendGeminiRequest = async (payload: string, prompt: string, generationConfig: GenerateContentConfig): Promise<GenerateContentResponse | null> => {
   try {
-
+    const genAI = new GoogleGenAI({apiKey: GEMINI_API_KEY});
     const parts:Part[] = [
       {
         text: prompt,

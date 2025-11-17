@@ -18,6 +18,7 @@ const attractionSchema = new Schema({
     images: { type: [String], required: false },
     website: { type: String, required: false },
     embedding: {type: [Number], required: false},
+    article: { type: String, required: false },
 }, { timestamps: true }); // Add timestamps (createdAt, updatedAt)
 
 // Define the model interface (optional, but recommended for better type safety)

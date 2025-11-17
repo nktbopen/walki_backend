@@ -5,7 +5,7 @@ import {Attraction, OverpassElement, WikipediaPage} from '../interfaces/interfac
 import { retrieveIsochrone, searchLocationByCoords} from '../services/mapboxService';
 import { getTouristAttractions } from '../services/overpassService';
 import { getWikidataItem } from '../services/wikidataService';
-import { generateDescription, } from '../services/geminiService';
+import { generateDescription, generateAttractionArticle } from '../services/geminiService';
 import { getWikipediaData } from '../services/wikipediaService';
 import qs from 'qs';
 import AttractionModel from '../models/attraction.model';
@@ -450,5 +450,56 @@ export const autocomplete = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Error in searchLocations:', error);
         res.status(500).json({ error: 'Failed to retrieve attractions' });
+    }
+};
+
+/**
+ * Populates the 'article' property of an Attraction with content
+ * from Wikipedia, and saves the updated Attraction.
+ *
+ * @param req The Express Request object.
+ * @param res The Express Response object.
+ */
+export const getAttractionArticle = async (req: Request, res: Response) => {
+    try {
+        const query = qs.parse(qs.stringify(req.query), { 
+            ignoreQueryPrefix: true //removes the "?"
+        });
+
+        const attractionId = query.attractionId;
+
+        // Input validation: Check for required IDs
+        if (!attractionId) {
+            res.status(400).json({ error: 'Attraction ID are required' });
+            return;
+        }
+
+        // Get itinerary and attraction
+        const attraction = await AttractionModel.findById(attractionId);
+        if (!attraction) {
+            res.status(404).json({ error: 'Attraction not found' });
+            return;
+        }
+
+        //  Get wikipedia data
+        //  Fetch/generate wikipedia content
+        if(!attraction.wikipedia_content){
+            await enrichWikipediaData(attraction);
+            await attraction.save(); // Save the attraction
+        }
+
+        // Generate article from Wikipedia content
+        if(attraction.wikipedia_content ){
+            const textResult = await generateAttractionArticle(attraction.wikipedia_content, "en-US");
+            attraction.article = textResult; // Assign to itineraryItem
+            // Save the updated itinerary
+            await attraction.save();
+        }
+    
+        res.status(200).json({ message: 'Article generated', attraction });
+
+    } catch (error) {
+        console.error('Error in getAttractionArticle:', error);
+        res.status(500).json({ error: 'Error in getAttractionArticle', details: error });
     }
 };

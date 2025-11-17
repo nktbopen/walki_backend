@@ -42,6 +42,7 @@ interface Attraction {
     website?: string;
     embedding?: number[];
     dml_type?: string;
+    article?: string;
 }
 
 interface OverpassElement {
