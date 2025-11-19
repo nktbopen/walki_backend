@@ -1,7 +1,16 @@
 // src/models/attraction.ts
 
 import mongoose, { Schema, Document } from 'mongoose';
-import { Attraction } from '../interfaces/interfaces';
+import { Attraction, } from '../interfaces/interfaces';
+
+const TranslationsSchema = new mongoose.Schema({
+  en_US: {
+    type: String,
+  },
+  ru_RU: {
+    type: String,
+  },
+}, { _id: false });
 
 // Define the schema using function notation
 const attractionSchema = new Schema({
@@ -18,7 +27,7 @@ const attractionSchema = new Schema({
     images: { type: [String], required: false },
     website: { type: String, required: false },
     embedding: {type: [Number], required: false},
-    article: { type: String, required: false },
+    article: { type: TranslationsSchema, default: {} },
 }, { timestamps: true }); // Add timestamps (createdAt, updatedAt)
 
 // Define the model interface (optional, but recommended for better type safety)

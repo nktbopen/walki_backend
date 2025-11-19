@@ -1,11 +1,5 @@
-import mongoose, { Schema, Document, Types } from 'mongoose';
-
-// Define the User interface
-export interface User extends Document {
-    email: string;
-    password: string; // Storing hashed password
-    itineraries?: Types.ObjectId[];
-}
+import mongoose, { Schema, Document, } from 'mongoose';
+import { User} from '../interfaces/interfaces';
 
 // Define the User schema
 const UserSchema: Schema = new Schema({
@@ -22,12 +16,19 @@ const UserSchema: Schema = new Schema({
     },
      itineraries: [{
         type: Schema.Types.ObjectId,
-        ref: 'Itinerary' // This tells Mongoose which model to use when populating
+        ref: 'Itinerary', // This tells Mongoose which model to use when populating
     }],
+    language: {
+        type: String,
+        default: 'en_US',
+    }
     // Add other schema definitions for additional fields
 }, {
     timestamps: true, // Adds createdAt and updatedAt timestamps automatically
 });
+
+// Define the model interface (optional, but recommended for better type safety)
+export interface UserInterface extends User, Document {}
 
 // Create and export the User model
 const UserModel = mongoose.model<User>('User', UserSchema);

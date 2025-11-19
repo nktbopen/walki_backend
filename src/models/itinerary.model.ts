@@ -1,7 +1,16 @@
 // src/models/itinerary.ts
 
 import mongoose, { Schema, Document } from 'mongoose';
-import { Itinerary, ItineraryItem } from '../interfaces/interfaces';
+import { Itinerary, } from '../interfaces/interfaces';
+
+const TranslationsSchema = new mongoose.Schema({
+  en_US: {
+    type: String,
+  },
+  ru_RU: {
+    type: String,
+  },
+}, { _id: false });
 
 // Define the ItineraryItem schema
 const ItineraryItemSchema: Schema = new Schema({
@@ -13,7 +22,7 @@ const ItineraryItemSchema: Schema = new Schema({
     audio: { type: String },
     coordinates: { type: [Number], index: '2dsphere' },
     description: { type: String },
-    text: { type: String },
+    text: { type: TranslationsSchema, default: {}},
     images: { type: [String], required: false },
 }, { _id: false });
 

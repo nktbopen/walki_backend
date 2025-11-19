@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken'; // Assuming you'll use JWTs for authentication after signup
 import User from '../models/user.model'; // Adjust path to your User Mongoose model
+import { Language } from '@google/genai';
 // Ensure your User model has 'email' and 'password' fields defined
 
 // Define a secret key for JWT (should be in environment variables in a real app)
@@ -72,6 +73,7 @@ export const signUp = async (req: Request, res: Response) => {
             user: {
                 id: savedUser._id,
                 email: savedUser.email,
+                language: savedUser.language,
                 // Do NOT send the hashed password back to the client
             },
             token, // Send the JWT for immediate authentication
@@ -136,6 +138,7 @@ export const signIn = async (req: Request, res: Response) => {
             user: {
                 id: user._id,
                 email: user.email,
+                language: user.language,
                 // Add any other user-specific data you want to send back (e.g., username, role)
             },
             token, // Send the JWT to the client

@@ -1,4 +1,18 @@
 //interfaces.ts
+import { Document, Types } from 'mongoose';
+
+// Define the User interface
+interface User {
+    email: string;
+    password: string; // Storing hashed password
+    itineraries?: Types.ObjectId[];
+    language: string;
+}
+
+interface Translations {
+    en_US?: string;
+    ru_RU?: string;
+}
 
 interface Itinerary {
   title?: string;
@@ -18,7 +32,7 @@ interface ItineraryItem {
   audio?: any;
   coordinates?: number[];
   description?: string;
-  text?: string; 
+  text: Translations;
   images?: string[];
 }
 
@@ -42,7 +56,7 @@ interface Attraction {
     website?: string;
     embedding?: number[];
     dml_type?: string;
-    article?: string;
+    article: Translations;
 }
 
 interface OverpassElement {
@@ -162,6 +176,8 @@ interface GenerateAudioScriptParams {
 }
 
 export type {
+    User,
+    Translations,
     Attraction, 
     OverpassElement, 
     WikidataItem, 

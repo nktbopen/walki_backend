@@ -1,20 +1,23 @@
 // textToSpeechService.ts
+import { voicesList, VoiceCodeKey} from "../constants/Voices";
 
 const API_KEY = "AIzaSyABWvoHN7DhrFfyf6FooWMMp2Hl0L8yHMg";
 const BASE_URL =  "https://texttospeech.googleapis.com/v1/text:synthesize";
 
-export const synthesizeSpeech = async (input_text: string): Promise<string|null> => {
+export const synthesizeSpeech = async (input_text: string, language: string): Promise<string|null> => {
     try {
         //console.log("Start synthesizeSpeech");
         //console.log('text:',input_text);
+        const languageCode = language as VoiceCodeKey;
+        const voiceCode = voicesList[languageCode];
         const request_body = {
             'input':{
                 //'text': input_text
                 'ssml': '<speak>'+input_text+'</speak>'
             },
             'voice':{
-                'languageCode': 'en-us', //'ru-RU', 
-                'name': 'en-US-Standard-I', //'ru-RU-Standard-D',
+                'languageCode': languageCode,//'en-us', //'ru-RU', 
+                'name': voiceCode,//'en-US-Standard-I', //'ru-RU-Standard-D',
                 'ssmlGender':'MALE',
             },
             'audioConfig':{
@@ -25,7 +28,6 @@ export const synthesizeSpeech = async (input_text: string): Promise<string|null>
                 ],
             }
         };
-
         const response = await fetch(
             `${BASE_URL}?key=${API_KEY}`, 
             {
@@ -39,7 +41,7 @@ export const synthesizeSpeech = async (input_text: string): Promise<string|null>
             console.log("Done synthesizeSpeech");
             return responseJson.audioContent;
         } else {
-            console.error('Error in synthesizeSpeech:');
+            console.error('Error in synthesizeSpeech:',responseJson);
             return null; // Return null in case of error
         }
         // const audioBlob = toBlob(responseJson.audioContent, 'audio/mpeg');

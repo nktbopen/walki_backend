@@ -126,7 +126,7 @@ export const generateAudioScript = async (params: GenerateAudioScriptParams): Pr
   + "3.  Strictly adhere to the **300-400 word** length. "
   + "4.  Begin with a captivating opening and end with a smooth transition or concluding thought. "
   + "5.  Do NOT include a title or introduction/conclusion that breaks the flow of the script. Start directly with the narrative. "
-  + "6.  Script language: **"+params.language+"**. "
+  + "6.  Output language: **"+params.language+"**. "
 
   const prompt = "**Generate the audio guide script for the attraction below.** "
   + "**Attraction Name:**"+params.attractionName+"** "
@@ -166,7 +166,7 @@ export const generateAttractionArticle = async (wikipediaData: string, language:
   + "4.  **Tone:** Maintain an **engaging, informative, and inviting** tone suitable for a travel guide or a blog post. "
   //+ "5.  **Structure:** Organize the summary logically with clear headings to enhance readability (e.g., 'History in Brief', 'Architectural Highlights', 'What Makes it Unique,' 'Visitor Essentials'). "
   + "5.  **Structure:** Organize the summary logically with clear headings to enhance readability. "
-  + "6.  Article language: **"+language+"**. "
+  + "6.  Output language: **"+language+"**. "
 
   const prompt = "**Input:** ";
 

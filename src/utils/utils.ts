@@ -1,3 +1,6 @@
+import { languagesList } from '../constants/Languages';
+import { Translations } from '../interfaces/interfaces';
+
 export const sleep = (ms: number):Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
@@ -15,4 +18,8 @@ export const parseMongoBbox = (bbox: string): [[number,number],[number,number]] 
 export const parseLocation = (location: string): [number,number] => {
     const [x, y] = location.toString().split(',').map(c => parseFloat(c));
     return [x, y];
+};
+
+export const validateLanguage = (language: string): boolean => {
+    return languagesList.includes(language as keyof Translations);
 };

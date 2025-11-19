@@ -1,7 +1,7 @@
 // attractionsController.ts
 
 import { Request, Response } from 'express';
-import {Attraction, OverpassElement, WikipediaPage} from '../interfaces/interfaces';
+import {Attraction, OverpassElement, Translations, WikipediaPage} from '../interfaces/interfaces';
 import { retrieveIsochrone, searchLocationByCoords} from '../services/mapboxService';
 import { getTouristAttractions } from '../services/overpassService';
 import { getWikidataItem } from '../services/wikidataService';
@@ -10,7 +10,7 @@ import { getWikipediaData } from '../services/wikipediaService';
 import qs from 'qs';
 import AttractionModel from '../models/attraction.model';
 import { Polygon} from 'geojson';
-import { parseMongoBbox, parseLocation } from '../utils/utils';
+import { parseMongoBbox, parseLocation, validateLanguage } from '../utils/utils';
 import { autocompleteSearch, vectorSearch } from '../services/mongoAtlasService';
 
 const convertOverpassToAttractions = async (overpassItems: OverpassElement[]): Promise<Attraction[]> => {
@@ -29,6 +29,7 @@ const convertOverpassToAttractions = async (overpassItems: OverpassElement[]): P
         let images: string[]|undefined = [];
         let website: string|undefined;
         const dml_type: string = 'I';
+        const article: Translations = {};
 
         // Coordinates
         if (item.lat && item.lon) {
@@ -83,6 +84,7 @@ const convertOverpassToAttractions = async (overpassItems: OverpassElement[]): P
             images,
             website,
             dml_type,
+            article,
         };
 
         if (attraction) {
@@ -143,6 +145,7 @@ const enrichAttractionDescriptions = async (attractions: Attraction[])=> {
                 address: a.address,
                 coordinates: a.coordinates,
                 categories: a.categories,
+                article: {},
             });
         }
     });
@@ -467,13 +470,22 @@ export const getAttractionArticle = async (req: Request, res: Response) => {
         });
 
         const attractionId = query.attractionId;
+        const language = query.language;
 
         // Input validation: Check for required IDs
         if (!attractionId) {
-            res.status(400).json({ error: 'Attraction ID are required' });
+            res.status(400).json({ error: 'Attraction ID is required' });
+            return;
+        }
+        console.log("language1",language);
+        // Validate language
+        if (!language || !validateLanguage(language.toString())) {
+            res.status(400).json({ error: 'Language is undefined or invalid' });
             return;
         }
 
+        const userLang: keyof Translations = language.toString() as keyof Translations;
+        console.log("userLang",userLang);
         // Get itinerary and attraction
         const attraction = await AttractionModel.findById(attractionId);
         if (!attraction) {
@@ -490,8 +502,8 @@ export const getAttractionArticle = async (req: Request, res: Response) => {
 
         // Generate article from Wikipedia content
         if(attraction.wikipedia_content ){
-            const textResult = await generateAttractionArticle(attraction.wikipedia_content, "en-US");
-            attraction.article = textResult; // Assign to itineraryItem
+            const textResult = await generateAttractionArticle(attraction.wikipedia_content, userLang);
+            attraction.article[userLang] = textResult; // Assign to itineraryItem
             // Save the updated itinerary
             await attraction.save();
         }

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import ItineraryModel  from '../models/itinerary.model'; // Import the Mongoose model
-import {Itinerary, Attraction, GenerateAudioScriptParams} from '../interfaces/interfaces';
+import {Itinerary, Attraction, GenerateAudioScriptParams, Translations} from '../interfaces/interfaces';
 import AttractionModel from '../models/attraction.model'; 
 import { retrieveOptimizedRoute,retrieveIsochrone } from '../services/mapboxService';
 import { enrichWikipediaData, retrieveAttractions } from './attractions.controller';
@@ -12,8 +12,8 @@ import {distance, point, featureCollection} from '@turf/turf'
 import { clustersDbscan} from "@turf/clusters-dbscan";
 import { Point, Feature } from 'geojson';
 import { vectorSearch } from '../services/mongoAtlasService';
-import { parseMongoBbox, parseLocation } from '../utils/utils';
-import { describe } from 'node:test';
+import { parseMongoBbox, parseLocation, validateLanguage } from '../utils/utils';
+
 
 /**
  * Converts an array of attractions (from the request) into an array of ItineraryItems.
@@ -71,6 +71,7 @@ const convertAttractionsToItinerary = async (attractions: any[], startPointCoord
             description: attraction.description, // Example
             is_last: sequence == attractions.length - 1, 
             images: attraction.images,
+            text: {},
         };
     }).sort((a, b) => a.sequence - b.sequence);
 
@@ -274,12 +275,21 @@ export const generateContent = async (req: Request, res: Response) => {
 
         const itineraryId = query.itineraryId;
         const attractionId = query.attractionId;
+        const language = query.language;
 
         // Input validation: Check for required IDs
         if (!itineraryId || !attractionId) {
-            res.status(400).json({ error: 'Itinerary ID and Attraction ID are required' });
+            res.status(400).json({ error: 'Itinerary ID Attraction ID are required' });
             return;
         }
+
+        // Validate language
+        if (!language || !validateLanguage(language.toString())) {
+            res.status(400).json({ error: 'Language is undefined or invalid' });
+            return;
+        }
+
+        const userLang: keyof Translations = language.toString() as keyof Translations;
 
         // Get itinerary and attraction
         const itinerary = await ItineraryModel.findById(itineraryId);
@@ -309,19 +319,18 @@ export const generateContent = async (req: Request, res: Response) => {
         }
 
         const itineraryItemsList = itinerary.itineraryItems.map(i => i.name).join(", ");
-
         // Generate text from Wikipedia content
-        if(attraction.wikipedia_content && itineraryItem && !itineraryItem.text ){
+        if(attraction.wikipedia_content && itineraryItem && !itineraryItem.text[userLang] ){
             const params: GenerateAudioScriptParams = {
                 attractionName: attraction.name,
                 topic: itinerary.title,
                 topicDescription: itinerary.description,
                 itineraryItemsList: itineraryItemsList,
                 wikipediaData: attraction.wikipedia_content,
-                language: "en-US",
+                language: userLang,
             };
             const textResult = await generateAudioScript(params);
-            itineraryItem.text = textResult; // Assign to itineraryItem
+            itineraryItem.text[userLang] = textResult; // Assign to itineraryItem
             // Save the updated itinerary
             await itinerary.save();
         }
@@ -349,12 +358,21 @@ export const getAudio = async (req: Request, res: Response) => {
 
         const itineraryId = query.itineraryId;
         const attractionId = query.attractionId;
+        const language = query.language;
 
         // Input validation: Check for required IDs
         if (!itineraryId || !attractionId) {
             res.status(400).json({ error: 'Itinerary ID and Attraction ID are required' });
             return;
         }
+
+        // Validate language
+        if (!language || !validateLanguage(language.toString())) {
+            res.status(400).json({ error: 'Language is undefined or invalid' });
+            return;
+        }
+
+        const userLang: keyof Translations = language.toString() as keyof Translations;
 
         // Get itinerary and attraction
         const itinerary = await ItineraryModel.findById(itineraryId);
@@ -371,12 +389,12 @@ export const getAudio = async (req: Request, res: Response) => {
         }
 
         // Generate audio from text
-        if(!itineraryItem.text){
+        if(!itineraryItem.text[userLang]){
             res.status(500).json({ error: 'Failed to generate content: text is empty in itineraryItem' });
             return;
         }
 
-        const audio = await synthesizeSpeech(itineraryItem.text);
+        const audio = await synthesizeSpeech(itineraryItem.text[userLang], userLang);
         res.status(200).json({ message: 'Content generated', audioContent: audio });
 
     } catch (error) {
@@ -544,6 +562,7 @@ const getSuggestions = async (attractions: Attraction[]):Promise<{title: string,
                 description: a.description,
                 coordinates: a.coordinates,
                 categories: a.categories,
+                article: {},
             });
         });
 
