@@ -12,6 +12,9 @@ import AttractionModel from '../models/attraction.model';
 import { Polygon} from 'geojson';
 import { parseMongoBbox, parseLocation, validateLanguage } from '../utils/utils';
 import { autocompleteSearch, vectorSearch } from '../services/mongoAtlasService';
+import { synthesizeSpeech } from '../services/textToSpeechService';
+import strip from 'strip-markdown';
+import { remark } from 'remark';
 
 const convertOverpassToAttractions = async (overpassItems: OverpassElement[]): Promise<Attraction[]> => {
     const attractions: Attraction[] = [];
@@ -513,5 +516,57 @@ export const getAttractionArticle = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Error in getAttractionArticle:', error);
         res.status(500).json({ error: 'Error in getAttractionArticle', details: error });
+    }
+};
+
+/**
+ * Generate 'audio' based on 'article' property of an Attraction with content
+
+ *
+ * @param req The Express Request object.
+ * @param res The Express Response object.
+ */
+export const getAudio = async (req: Request, res: Response) => {
+    try {
+        const query = qs.parse(qs.stringify(req.query), { 
+            ignoreQueryPrefix: true //removes the "?"
+        });
+
+        const attractionId = query.attractionId;
+        const language = query.language;
+
+        // Input validation: Check for required IDs
+        if (!attractionId) {
+            res.status(400).json({ error: 'Attraction ID are required' });
+            return;
+        }
+
+        // Validate language
+        if (!language || !validateLanguage(language.toString())) {
+            res.status(400).json({ error: 'Language is undefined or invalid' });
+            return;
+        }
+
+        const userLang: keyof Translations = language.toString() as keyof Translations;
+
+        // Get itinerary and attraction
+        const attraction = await AttractionModel.findById(attractionId);
+        if (!attraction) {
+            res.status(404).json({ error: 'Attraction not found' });
+            return;
+        }
+
+        // Generate audio from text
+        if(!attraction.article[userLang]){
+            res.status(500).json({ error: 'Failed to generate content: article is empty in attraction' });
+            return;
+        }
+        const articleText = await remark().use(strip).process(attraction.article[userLang]);
+        const audio = await synthesizeSpeech(String(articleText), userLang);
+        res.status(200).json({ message: 'Content generated', audioContent: audio });
+
+    } catch (error) {
+        console.error('Error in generateContent:', error);
+        res.status(500).json({ error: 'Failed to generate content', details: error });
     }
 };

@@ -25,6 +25,8 @@
     "mapbox": "^1.0.0-beta10",
     "mongodb": "^6.16.0",
     "mongoose": "^8.14.1",
+    "remark": "^15.0.1",
+    "strip-markdown": "^6.0.0",
     "voyageai": "^0.0.8"
   },
   "devDependencies": {

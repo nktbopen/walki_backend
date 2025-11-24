@@ -1,7 +1,7 @@
 
 import express from 'express';
 import { verifyToken } from '../middlewares/authMiddleware'; 
-import {getAttractionsByLocation, getAllAttractions, getAttractions, autocomplete, getAttractionArticle} from '../controllers/attractions.controller';
+import {getAttractionsByLocation, getAllAttractions, getAttractions, autocomplete, getAttractionArticle, getAudio} from '../controllers/attractions.controller';
 
 const router = express.Router();
 
@@ -15,5 +15,8 @@ router.get('/getAttractions', verifyToken, getAttractions); // GET attractions
 router.get('/autocomplete', verifyToken, autocomplete); // GET autocomplete
 
 router.get('/getAttractionArticle', verifyToken, getAttractionArticle); // GET getAttractionArticle
+
+router.get('/getAudio', verifyToken, getAudio); // Route to generate audio
+
 
 export default router;
