@@ -8,6 +8,15 @@ import { Language } from '@google/genai';
 // Define a secret key for JWT (should be in environment variables in a real app)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key'; // Use a strong, random key in production
 
+const hashPassword = async (password: string) => {
+    // 3. Hash the password
+    // The saltRounds determine how much processing power it will take to hash the password.
+    // A higher number means more secure, but slower. 10-12 is a common range.
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    return hashedPassword;
+};
+
 /**
  * Handles user registration (sign-up) with email and password.
  * Hashes the password and saves the new user to the database.
@@ -46,10 +55,7 @@ export const signUp = async (req: Request, res: Response) => {
         }
 
         // 3. Hash the password
-        // The saltRounds determine how much processing power it will take to hash the password.
-        // A higher number means more secure, but slower. 10-12 is a common range.
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const hashedPassword = await hashPassword(password);
 
         // 4. Create a new user instance
         const newUser = new User({
@@ -147,5 +153,101 @@ export const signIn = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Error during user sign-in:', error);
         res.status(500).json({ error: 'Failed to retrieve itinerary', details: error });
+    }
+};
+
+/**
+ * Get user info
+ *
+ * @param req The Express Request object.
+ * @param res The Express Response object.
+ */
+export const getInfo = async (req: Request, res: Response) => {
+    try {
+        // Ensure the user is authenticated (req.user should be populated by verifyToken middleware)
+        if (!req.user || !req.user.id) {
+            res.status(401).json({ error: 'Unauthorized: User not authenticated.' });
+            return;
+        }
+
+        // Find the user by id
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            // Use a generic message to prevent username enumeration attacks
+            res.status(401).json({ message: 'Cannot find the user by Id' });
+            return
+        }
+
+        // 6. Respond with success message, user info (excluding password), and the JWT
+        res.status(200).json({
+            user: {
+                id: user._id,
+                email: user.email,
+                language: user.language,
+            },
+        });
+
+    } catch (error) {
+        console.error('Error during user getInfo:', error);
+        res.status(500).json({ error: 'Failed to retrieve user Info', details: error });
+    }
+};
+
+/**
+ * Update user info
+ *
+ * @param req The Express Request object, expecting 'email', 'password', 'language' in the body.
+ * @param res The Express Response object.
+ */
+export const updateInfo = async (req: Request, res: Response) => {
+    try {
+        const { email, password, language } = req.body;
+
+        // Ensure the user is authenticated (req.user should be populated by verifyToken middleware)
+        if (!req.user || !req.user.id) {
+            res.status(401).json({ error: 'Unauthorized: User not authenticated.' });
+            return;
+        }
+
+        // Find the user by id
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            // Use a generic message to prevent username enumeration attacks
+            res.status(401).json({ message: 'Cannot find the user by Id' });
+            return
+        }
+
+        // Update user email
+        if(email){
+            if (!/\S+@\S+\.\S+/.test(email)) {
+                res.status(400).json({ message: 'Invalid email format.' });
+                return;
+            }
+            user.email = email;
+        }
+        // Update user password
+        if(password){
+            if (password.length < 6) {
+                res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+                return;
+            }
+            const hashedPassword = await hashPassword(password);
+            user.password = hashedPassword;
+        }
+        // Update user language
+        if(language){
+            user.language = language;
+        }
+
+        user.save();
+
+        // Respond with success message, user info (excluding password), and the JWT
+        res.status(200).json({
+            message: "User data has been updated."
+        });
+
+    } catch (error) {
+        console.error('Error during user updateInfo:', error);
+        res.status(500).json({ error: 'Failed to update user Info', details: error });
     }
 };
