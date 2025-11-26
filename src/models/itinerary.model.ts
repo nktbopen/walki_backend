@@ -22,7 +22,7 @@ const ItineraryItemSchema: Schema = new Schema({
     audio: { type: String },
     coordinates: { type: [Number], index: '2dsphere' },
     description: { type: String },
-    text: { type: TranslationsSchema, default: {}},
+    text: { type: TranslationsSchema, required: true ,  default: {}},
     images: { type: [String], required: false },
 }, { _id: false });
 
