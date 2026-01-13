@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import { connectToDatabase } from './database/mongo'; // Import the database connection function
 import attractionsRouter from './routes/attraction.routes'; // Import the attractions routes

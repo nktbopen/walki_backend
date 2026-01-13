@@ -3,12 +3,10 @@
 import polyline from '@mapbox/polyline';
 import { MapboxGeocodingResult, MapboxIsochroneResult, MapboxOptimizationResult} from '../interfaces/interfaces'; // Define types (see below)
 
-//import { MAPBOX_ACCESS_TOKEN} from "@env";
-
 const MAPBOX_GEOCODE_API_BASE_URL = 'https://api.mapbox.com/search/geocode/v6';
 const MAPBOX_ISOCHRONE_API_BASE_URL = 'https://api.mapbox.com/isochrone/v1';
 const MAPBOX_OPTIMIZATION_API_URL = 'https://api.mapbox.com/optimized-trips/v1';
-const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1Ijoibmt0YiIsImEiOiJjazhscjEwanEwZmYyM25xbzVreWMyYTU1In0.dcztuEUgjlhgaalrc_KLMw';
+const MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN || '';
 
 export const searchLocationByName = async (searchTerm: string): Promise<MapboxGeocodingResult[]> => {
   try {

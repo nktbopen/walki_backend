@@ -3,8 +3,7 @@ import {GoogleGenAI,GenerateContentResponse, Content, GenerateContentConfig, Sch
 import { GenerateAudioScriptParams } from '../interfaces/interfaces';
 
 const modelName = 'gemini-2.5-flash-lite'
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 export const generateDescription = async (attractions: string): Promise<string | undefined> => {
   const generateDescriptionModelConfig:GenerateContentConfig = {

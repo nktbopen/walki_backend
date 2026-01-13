@@ -1,11 +1,12 @@
 // textToSpeechService.ts
 import { voicesList, VoiceCodeKey} from "../constants/Voices";
 
-const API_KEY = "AIzaSyABWvoHN7DhrFfyf6FooWMMp2Hl0L8yHMg";
+const API_KEY = process.env.GEMINI_API_KEY;
 const BASE_URL =  "https://texttospeech.googleapis.com/v1/text:synthesize";
 
 export const synthesizeSpeech = async (input_text: string, language: string): Promise<string|null> => {
     try {
+
         //console.log("Start synthesizeSpeech");
         //console.log('text:',input_text);
         const languageCode = language as VoiceCodeKey;
